@@ -14,7 +14,10 @@
   {
     "method": "GET",
     "url": "/tests",
-    "status": 200,
+    "query_params": {
+      "page": 0,
+      "size": 10
+    },
     "response": true
   }
 ]

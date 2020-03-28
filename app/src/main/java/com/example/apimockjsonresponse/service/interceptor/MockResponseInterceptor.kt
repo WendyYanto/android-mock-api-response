@@ -11,7 +11,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import java.util.concurrent.atomic.AtomicReference
 
-
 class MockResponseInterceptor(private val context: Context) : Interceptor {
 
     companion object {
@@ -22,7 +21,6 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
     private val mockResponse = AtomicReference<MutableList<MockResponse>>()
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        println(this)
         val endpoint = chain.request().url.toString().replace(RetrofitProvider.BASE_URL, "")
         val method = chain.request().method
         val response = getMockResponse(endpoint, method)
@@ -45,7 +43,7 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
             }
             this.objectMapper.toJson(response?.response) to response?.status
         } catch (e: Exception) {
-            "" to 200
+            "" to 404
         }
     }
 
@@ -58,8 +56,22 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
             jsonInputStream.close()
             val json = String(buffer, Charset.defaultCharset())
             val response = this.objectMapper.fromJson<List<MockResponse>>(json)
-            mockResponse.set(response.toMutableList())
+            mockResponse.set(toResponseWithQueryParams(response))
         }
+    }
+
+    private fun toResponseWithQueryParams(response: List<MockResponse>): MutableList<MockResponse> {
+        return response.map {
+            it.queries?.let { queries ->
+                it.url += "?"
+                queries.forEach { query ->
+                    it.url += "${query.key}=${query.value}&"
+                }
+                val length = it.url?.length ?: 1
+                it.url = it.url?.substring(0, length - 1)
+            }
+            it
+        }.toMutableList()
     }
 }
 
