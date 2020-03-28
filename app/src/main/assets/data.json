@@ -1,0 +1,20 @@
+[
+  {
+    "method": "GET",
+    "url": "/users",
+    "status": 200,
+    "response": [
+      {
+        "id": "1212",
+        "name": "Mock First Name",
+        "username": "Bret"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "url": "/tests",
+    "status": 200,
+    "response": true
+  }
+]

@@ -9,4 +9,6 @@ interface UserService {
     @GET("/users")
     fun getUser(): Call<List<User>>
 
+    @GET("/tests")
+    fun getTest(): Call<Boolean>
 }
