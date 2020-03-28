@@ -18,7 +18,7 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
     }
 
     private val objectMapper = Gson()
-    private val mockResponse = AtomicReference<MutableList<MockResponse>>()
+    private val mockResponse = AtomicReference<MutableMap<String, MockResponse>>()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val endpoint = chain.request().url.toString().replace(RetrofitProvider.BASE_URL, "")
@@ -38,9 +38,7 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
     private fun getMockResponse(endpoint: String, method: String): Pair<String, Int?> {
         return try {
             this.fetchMockResponse()
-            val response = mockResponse.get().find {
-                it.method == method && it.url == endpoint
-            }
+            val response = mockResponse.get()["${endpoint}_${method}"]
             this.objectMapper.toJson(response?.response) to response?.status
         } catch (e: Exception) {
             "" to 404
@@ -60,8 +58,9 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
         }
     }
 
-    private fun toResponseWithQueryParams(response: List<MockResponse>): MutableList<MockResponse> {
-        return response.map {
+    private fun toResponseWithQueryParams(response: List<MockResponse>): MutableMap<String, MockResponse> {
+        val responseMap = mutableMapOf<String, MockResponse>()
+        response.forEach {
             it.queries?.let { queries ->
                 it.url += "?"
                 queries.forEach { query ->
@@ -70,8 +69,9 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
                 val length = it.url?.length ?: 1
                 it.url = it.url?.substring(0, length - 1)
             }
-            it
-        }.toMutableList()
+            responseMap["${it.url}_${it.method}"] = it
+        }
+        return responseMap
     }
 }
 

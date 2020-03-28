@@ -8,7 +8,9 @@ data class MockResponse(
     @SerializedName("status")
     val status: Int? = 200,
     @SerializedName("url")
-    val url: String?,
+    var url: String?,
+    @SerializedName("query_params")
+    val queries: Map<String, String>?,
     @SerializedName("response")
     val response: Any?
 )
