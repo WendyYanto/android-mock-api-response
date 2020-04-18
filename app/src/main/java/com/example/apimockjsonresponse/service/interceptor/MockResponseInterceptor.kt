@@ -1,13 +1,16 @@
 package com.example.apimockjsonresponse.service.interceptor
 
 import android.content.Context
+import com.example.apimockjsonresponse.BuildConfig
 import com.example.apimockjsonresponse.response.MockResponse
 import com.example.apimockjsonresponse.service.provider.RetrofitProvider
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import okhttp3.*
+import okhttp3.Interceptor
 import java.nio.charset.Charset
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Protocol
+import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import java.util.concurrent.atomic.AtomicReference
 
@@ -21,23 +24,26 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
     private val mockResponse = AtomicReference<MutableMap<String, MockResponse>>()
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val endpoint = chain.request().url.toString().replace(RetrofitProvider.BASE_URL, "")
-        val method = chain.request().method
-        val response = getMockResponse(endpoint, method)
+        if (BuildConfig.DEBUG) {
+            val endpoint = chain.request().url.toString().replace(RetrofitProvider.BASE_URL, "")
+            val method = chain.request().method
+            val response = fetchMockResponse(endpoint, method)
+            return chain.proceed(chain.request())
+                .newBuilder()
+                .protocol(Protocol.HTTP_2)
+                .code(response.second ?: 200)
+                .body(response.first.toByteArray().toResponseBody("application/json".toMediaType()))
+                .addHeader("content-type", "application/json")
+                .build()
+        }
         return chain.proceed(chain.request())
-            .newBuilder()
-            .protocol(Protocol.HTTP_2)
-            .code(response.second ?: 200)
-            .body(
-                response.first.toByteArray().toResponseBody("application/json; charset=utf-8".toMediaType())
-            )
-            .addHeader("content-type", "application/json")
-            .build()
     }
 
-    private fun getMockResponse(endpoint: String, method: String): Pair<String, Int?> {
+    private fun fetchMockResponse(endpoint: String, method: String): Pair<String, Int?> {
         return try {
-            this.fetchMockResponse()
+            if (mockResponse.get().isNullOrEmpty()) {
+                this.fillMockResponse()
+            }
             val response = mockResponse.get()["${endpoint}_${method}"]
             this.objectMapper.toJson(response?.response) to response?.status
         } catch (e: Exception) {
@@ -45,17 +51,16 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
         }
     }
 
-    private fun fetchMockResponse() {
-        if (mockResponse.get().isNullOrEmpty()) {
-            val jsonInputStream = context.assets.open(MOCK_JSON_FILE)
-            val size = jsonInputStream.available()
-            val buffer = ByteArray(size)
-            jsonInputStream.read(buffer)
-            jsonInputStream.close()
-            val json = String(buffer, Charset.defaultCharset())
-            val response = this.objectMapper.fromJson<List<MockResponse>>(json)
-            mockResponse.set(toResponseWithQueryParams(response))
-        }
+    private fun fillMockResponse() {
+        val jsonInputStream = context.assets.open(MOCK_JSON_FILE)
+        val size = jsonInputStream.available()
+        val buffer = ByteArray(size)
+        jsonInputStream.read(buffer)
+        jsonInputStream.close()
+        val jsonResponse = String(buffer, Charset.defaultCharset())
+        val mockResponseType = object : TypeToken<List<MockResponse>>() {}.type
+        val response = objectMapper.fromJson<List<MockResponse>>(jsonResponse, mockResponseType)
+        mockResponse.set(toResponseWithQueryParams(response))
     }
 
     private fun toResponseWithQueryParams(response: List<MockResponse>): MutableMap<String, MockResponse> {
@@ -73,7 +78,6 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
         }
         return responseMap
     }
+
 }
 
-inline fun <reified T> Gson.fromJson(json: String) =
-    fromJson<T>(json, object : TypeToken<T>() {}.type)
