@@ -1,8 +1,8 @@
-package com.example.apimockjsonresponse.response
+package dev.wendyyanto.mockinterceptor.interceptor.response
 
 import com.google.gson.annotations.SerializedName
 
-data class MockResponse(
+internal data class MockResponse(
     @SerializedName("method")
     val method: String?,
     @SerializedName("status")

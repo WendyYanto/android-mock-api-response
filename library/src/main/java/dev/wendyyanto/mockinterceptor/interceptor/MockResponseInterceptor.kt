@@ -1,42 +1,38 @@
-package com.example.apimockjsonresponse.service.interceptor
+package dev.wendyyanto.mockinterceptor.interceptor
 
 import android.content.Context
-import com.example.apimockjsonresponse.BuildConfig
-import com.example.apimockjsonresponse.response.MockResponse
-import com.example.apimockjsonresponse.service.provider.RetrofitProvider
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import dev.wendyyanto.mockinterceptor.interceptor.response.MockResponse
 import okhttp3.Interceptor
 import java.nio.charset.Charset
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import java.lang.IllegalArgumentException
 import java.util.concurrent.atomic.AtomicReference
 
-class MockResponseInterceptor(private val context: Context) : Interceptor {
+class MockResponseInterceptor(
+    private val context: Context,
+    private val objectMapper: Gson,
+    private val url: String,
+    private val file: String = "data"
+) : Interceptor {
 
-    companion object {
-        private const val MOCK_JSON_FILE = "data.json"
-    }
-
-    private val objectMapper = Gson()
     private val mockResponse = AtomicReference<MutableMap<String, MockResponse>>()
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        if (BuildConfig.DEBUG) {
-            val endpoint = chain.request().url.toString().replace(RetrofitProvider.BASE_URL, "")
-            val method = chain.request().method
-            val response = fetchMockResponse(endpoint, method)
-            return chain.proceed(chain.request())
-                .newBuilder()
-                .protocol(Protocol.HTTP_2)
-                .code(response.second ?: 200)
-                .body(response.first.toByteArray().toResponseBody("application/json".toMediaType()))
-                .addHeader("content-type", "application/json")
-                .build()
-        }
+        val endpoint = chain.request().url.toString().replace(url, "")
+        val method = chain.request().method
+        val response = fetchMockResponse(endpoint, method)
         return chain.proceed(chain.request())
+            .newBuilder()
+            .protocol(Protocol.HTTP_2)
+            .code(response.second ?: 200)
+            .body(response.first.toByteArray().toResponseBody("application/json".toMediaType()))
+            .addHeader("content-type", "application/json")
+            .build()
     }
 
     private fun fetchMockResponse(endpoint: String, method: String): Pair<String, Int?> {
@@ -52,15 +48,19 @@ class MockResponseInterceptor(private val context: Context) : Interceptor {
     }
 
     private fun fillMockResponse() {
-        val jsonInputStream = context.assets.open(MOCK_JSON_FILE)
-        val size = jsonInputStream.available()
-        val buffer = ByteArray(size)
-        jsonInputStream.read(buffer)
-        jsonInputStream.close()
-        val jsonResponse = String(buffer, Charset.defaultCharset())
-        val mockResponseType = object : TypeToken<List<MockResponse>>() {}.type
-        val response = objectMapper.fromJson<List<MockResponse>>(jsonResponse, mockResponseType)
-        mockResponse.set(toResponseWithQueryParams(response))
+        try {
+            val jsonInputStream = context.assets.open("$file.json")
+            val size = jsonInputStream.available()
+            val buffer = ByteArray(size)
+            jsonInputStream.read(buffer)
+            jsonInputStream.close()
+            val jsonResponse = String(buffer, Charset.defaultCharset())
+            val mockResponseType = object : TypeToken<List<MockResponse>>() {}.type
+            val response = objectMapper.fromJson<List<MockResponse>>(jsonResponse, mockResponseType)
+            mockResponse.set(toResponseWithQueryParams(response))
+        } catch (e: java.lang.Exception) {
+            throw IllegalArgumentException("Cannot read JSON from file $file")
+        }
     }
 
     private fun toResponseWithQueryParams(response: List<MockResponse>): MutableMap<String, MockResponse> {
