@@ -14,11 +14,11 @@ class OkHttpClientProvider {
             client = OkHttpClient
                 .Builder()
                 .addInterceptor(
-                    MockResponseInterceptor(
-                        context,
-                        GsonProvider.getInstance(),
-                        RetrofitProvider.BASE_URL
-                    )
+                    MockResponseInterceptor.Builder()
+                        .context(context)
+                        .objectMapper(GsonProvider.getInstance())
+                        .url(RetrofitProvider.BASE_URL)
+                        .build()
                 )
                 .build()
         }

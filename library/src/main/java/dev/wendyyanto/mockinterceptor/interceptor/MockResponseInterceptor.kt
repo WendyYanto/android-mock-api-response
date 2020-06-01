@@ -13,12 +13,25 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import java.lang.IllegalArgumentException
 import java.util.concurrent.atomic.AtomicReference
 
-class MockResponseInterceptor(
+class MockResponseInterceptor private constructor(
     private val context: Context,
     private val objectMapper: Gson,
     private val url: String,
-    private val file: String = "data"
+    private val file: String
 ) : Interceptor {
+
+    data class Builder(
+        var context: Context? = null,
+        var objectMapper: Gson? = null,
+        var url: String? = null,
+        var file: String = "data"
+    ) {
+        fun context(context: Context) = apply { this.context = context }
+        fun objectMapper(objectMapper: Gson) = apply { this.objectMapper = objectMapper }
+        fun url(url: String) = apply { this.url = url }
+        fun file(file: String) = apply { this.file = file }
+        fun build() = MockResponseInterceptor(context!!, objectMapper!!, url!!, file)
+    }
 
     private val mockResponse = AtomicReference<MutableMap<String, MockResponse>>()
 
